@@ -7,13 +7,12 @@ and color contrast analysis.
 """
 
 import logging
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app import __version__
 from app.config import get_settings
 from app.middleware.error_handler import ErrorHandlerMiddleware, setup_exception_handlers
 from app.routers import (
@@ -52,9 +51,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.warning(f"Failed to connect to Redis: {e}")
         # Continue without Redis - some features may be degraded
 
-    logger.info(
-        f"StayOnBoard API v{settings.app_version} started in {settings.environment} mode"
-    )
+    logger.info(f"StayOnBoard API v{settings.app_version} started in {settings.environment} mode")
 
     yield
 

@@ -3,7 +3,6 @@ FastAPI dependency injection providers.
 """
 
 import logging
-from typing import Optional
 
 from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -56,7 +55,7 @@ async def get_auth(settings: Settings = Depends(get_settings_dep)) -> AuthServic
 
 
 async def get_current_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     auth_service: AuthService = Depends(get_auth),
 ) -> User:
     """
@@ -99,9 +98,9 @@ async def get_current_user(
 
 
 async def get_optional_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     auth_service: AuthService = Depends(get_auth),
-) -> Optional[User]:
+) -> User | None:
     """
     Dependency to optionally get the current user.
 
@@ -261,7 +260,7 @@ async def get_storage_service_dep(
 
 
 async def verify_api_key(
-    x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
+    x_api_key: str | None = Header(None, alias="X-API-Key"),
     settings: Settings = Depends(get_settings_dep),
 ) -> bool:
     """

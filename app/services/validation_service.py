@@ -5,7 +5,7 @@ Combined validation service for managing validation history and reruns.
 import logging
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from app.models.enums import ValidationStatus, ValidationType
 from app.models.requests import ValidationHistoryParams, ValidationRerunRequest
@@ -30,7 +30,7 @@ class ValidationService:
     - Rerunning previous validations
     """
 
-    def __init__(self, redis_service: Optional[RedisService] = None):
+    def __init__(self, redis_service: RedisService | None = None):
         """
         Initialize validation service.
 
@@ -113,8 +113,14 @@ class ValidationService:
             validation_id=validation_id,
             validation_type=ValidationType(validation.get("type", "combined")),
             status=ValidationStatus(validation.get("status", "completed")),
-            created_at=datetime.fromisoformat(validation.get("created_at", datetime.utcnow().isoformat())),
-            completed_at=datetime.fromisoformat(validation["completed_at"]) if validation.get("completed_at") else None,
+            created_at=datetime.fromisoformat(
+                validation.get("created_at", datetime.utcnow().isoformat())
+            ),
+            completed_at=(
+                datetime.fromisoformat(validation["completed_at"])
+                if validation.get("completed_at")
+                else None
+            ),
             request_params=validation.get("request_params", {}),
             result=validation.get("result"),
             error=validation.get("error"),
@@ -188,9 +194,9 @@ class ValidationService:
         validation_id: str,
         user_id: str,
         validation_type: ValidationType,
-        request_params: Dict[str, Any],
-        result: Optional[Dict[str, Any]] = None,
-        error: Optional[str] = None,
+        request_params: dict[str, Any],
+        result: dict[str, Any] | None = None,
+        error: str | None = None,
     ) -> None:
         """
         Store a validation result.
@@ -231,7 +237,7 @@ class ValidationService:
         self,
         user_id: str,
         params: ValidationHistoryParams,
-    ) -> List[ValidationHistoryItem]:
+    ) -> list[ValidationHistoryItem]:
         """
         Fetch history items for a user.
 
@@ -279,9 +285,11 @@ class ValidationService:
                             created_at=datetime.fromisoformat(
                                 validation.get("created_at", datetime.utcnow().isoformat())
                             ),
-                            completed_at=datetime.fromisoformat(validation["completed_at"])
-                            if validation.get("completed_at")
-                            else None,
+                            completed_at=(
+                                datetime.fromisoformat(validation["completed_at"])
+                                if validation.get("completed_at")
+                                else None
+                            ),
                             summary=self._generate_summary(validation),
                             compliance_score=validation.get("result", {}).get("compliance_score"),
                         )
@@ -311,7 +319,7 @@ class ValidationService:
             return len(validation_ids)
         return 0
 
-    async def _fetch_validation(self, validation_id: str) -> Optional[Dict[str, Any]]:
+    async def _fetch_validation(self, validation_id: str) -> dict[str, Any] | None:
         """
         Fetch a single validation by ID.
 
@@ -331,7 +339,7 @@ class ValidationService:
         validation_id: str,
         user_id: str,
         validation_type: str,
-        request_params: Dict[str, Any],
+        request_params: dict[str, Any],
     ) -> None:
         """
         Store a new validation record.
@@ -374,7 +382,7 @@ class ValidationService:
             history.insert(0, validation_id)  # Most recent first
             await self._redis.set(history_key, history)
 
-    def _generate_summary(self, validation: Dict[str, Any]) -> str:
+    def _generate_summary(self, validation: dict[str, Any]) -> str:
         """
         Generate a summary string for a validation.
 
@@ -394,12 +402,14 @@ class ValidationService:
                 return f"{validation_type} validation completed with {score:.1f}% compliance"
             return f"{validation_type} validation completed"
         elif status == "failed":
-            return f"{validation_type} validation failed: {validation.get('error', 'Unknown error')}"
+            return (
+                f"{validation_type} validation failed: {validation.get('error', 'Unknown error')}"
+            )
         else:
             return f"{validation_type} validation {status}"
 
 
 # Factory function
-def get_validation_service(redis_service: Optional[RedisService] = None) -> ValidationService:
+def get_validation_service(redis_service: RedisService | None = None) -> ValidationService:
     """Get validation service instance."""
     return ValidationService(redis_service)

@@ -3,7 +3,6 @@ File validation utilities for upload handling.
 """
 
 import logging
-from typing import List, Optional
 
 from fastapi import HTTPException, UploadFile, status
 
@@ -22,9 +21,9 @@ class FileValidationError(Exception):
 
 
 def validate_file_extension(
-    filename: Optional[str],
-    allowed_extensions: Optional[List[str]] = None,
-    settings: Optional[Settings] = None,
+    filename: str | None,
+    allowed_extensions: list[str] | None = None,
+    settings: Settings | None = None,
 ) -> str:
     """
     Validate file extension against allowed extensions.
@@ -72,8 +71,8 @@ def validate_file_extension(
 
 def validate_file_size(
     file: UploadFile,
-    max_size_bytes: Optional[int] = None,
-    settings: Optional[Settings] = None,
+    max_size_bytes: int | None = None,
+    settings: Settings | None = None,
 ) -> int:
     """
     Validate file size against maximum allowed.
@@ -113,9 +112,9 @@ def validate_file_size(
 
 
 def validate_mime_type(
-    content_type: Optional[str],
-    allowed_types: Optional[List[str]] = None,
-    settings: Optional[Settings] = None,
+    content_type: str | None,
+    allowed_types: list[str] | None = None,
+    settings: Settings | None = None,
 ) -> str:
     """
     Validate MIME type against allowed types.
@@ -149,8 +148,7 @@ def validate_mime_type(
 
     if mime_type not in [t.lower() for t in allowed]:
         raise FileValidationError(
-            f"MIME type '{mime_type}' is not allowed. "
-            f"Allowed types: {', '.join(allowed)}",
+            f"MIME type '{mime_type}' is not allowed. " f"Allowed types: {', '.join(allowed)}",
             "INVALID_MIME_TYPE",
         )
 
@@ -159,7 +157,7 @@ def validate_mime_type(
 
 async def validate_image_file(
     file: UploadFile,
-    settings: Optional[Settings] = None,
+    settings: Settings | None = None,
 ) -> dict:
     """
     Perform comprehensive validation on an image file.
@@ -210,7 +208,7 @@ async def validate_image_file(
         )
 
 
-def get_supported_formats(settings: Optional[Settings] = None) -> dict:
+def get_supported_formats(settings: Settings | None = None) -> dict:
     """
     Get information about supported file formats.
 

@@ -3,7 +3,6 @@ Color analysis and contrast calculation service.
 """
 
 import logging
-from typing import List, Optional, Tuple
 
 from app.models.enums import ColorFormat, ContrastRating, TextSize, WCAGLevel
 from app.models.responses import ColorCompareResponse, ColorRecommendation
@@ -99,7 +98,7 @@ class ColorService:
 
         return 0.2126 * r_linear + 0.7152 * g_linear + 0.0722 * b_linear
 
-    def _hex_to_rgb(self, hex_color: str) -> Tuple[int, int, int]:
+    def _hex_to_rgb(self, hex_color: str) -> tuple[int, int, int]:
         """
         Convert hex color to RGB tuple.
 
@@ -229,7 +228,7 @@ class ColorService:
         target_level: WCAGLevel = WCAGLevel.AA,
         text_size: TextSize = TextSize.NORMAL,
         max_recommendations: int = 3,
-    ) -> List[ColorRecommendation]:
+    ) -> list[ColorRecommendation]:
         """
         Generate color recommendations to meet WCAG requirements.
 
@@ -332,7 +331,7 @@ class ColorService:
 
 
 # Singleton instance
-_color_service: Optional[ColorService] = None
+_color_service: ColorService | None = None
 
 
 def get_color_service() -> ColorService:

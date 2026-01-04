@@ -6,7 +6,7 @@ import hashlib
 import logging
 import uuid
 from datetime import datetime, timedelta
-from typing import Any, BinaryIO, Dict, Optional
+from typing import Any
 
 from fastapi import UploadFile
 
@@ -26,8 +26,8 @@ class StorageService:
 
     def __init__(
         self,
-        redis_service: Optional[RedisService] = None,
-        settings: Optional[Settings] = None,
+        redis_service: RedisService | None = None,
+        settings: Settings | None = None,
     ):
         """
         Initialize storage service.
@@ -43,7 +43,7 @@ class StorageService:
         self,
         file: UploadFile,
         user_id: str,
-        ttl_seconds: Optional[int] = None,
+        ttl_seconds: int | None = None,
     ) -> str:
         """
         Store a file and return its storage ID.
@@ -92,7 +92,7 @@ class StorageService:
         logger.info(f"Stored file {file.filename} with ID {storage_id}")
         return storage_id
 
-    async def get_file(self, storage_id: str) -> Optional[bytes]:
+    async def get_file(self, storage_id: str) -> bytes | None:
         """
         Retrieve file content by storage ID.
 
@@ -119,7 +119,7 @@ class StorageService:
 
         return None
 
-    async def get_file_metadata(self, storage_id: str) -> Optional[Dict[str, Any]]:
+    async def get_file_metadata(self, storage_id: str) -> dict[str, Any] | None:
         """
         Get file metadata by storage ID.
 
@@ -181,7 +181,7 @@ class StorageService:
         content_type: str,
         user_id: str,
         expiry_seconds: int = 3600,
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """
         Generate a pre-signed upload URL for direct uploads.
 
@@ -228,7 +228,7 @@ class StorageService:
         logger.info(f"Cleaned up {cleaned} expired files")
         return cleaned
 
-    async def get_storage_stats(self, user_id: Optional[str] = None) -> Dict[str, Any]:
+    async def get_storage_stats(self, user_id: str | None = None) -> dict[str, Any]:
         """
         Get storage statistics.
 
@@ -252,6 +252,6 @@ class StorageService:
 
 
 # Factory function
-def get_storage_service(redis_service: Optional[RedisService] = None) -> StorageService:
+def get_storage_service(redis_service: RedisService | None = None) -> StorageService:
     """Get storage service instance."""
     return StorageService(redis_service)

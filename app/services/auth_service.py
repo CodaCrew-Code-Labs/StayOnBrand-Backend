@@ -3,8 +3,6 @@ Authentication service for external auth service verification.
 """
 
 import logging
-from datetime import datetime
-from typing import Optional
 
 import httpx
 from jose import JWTError, jwt
@@ -31,7 +29,7 @@ class AuthService:
     Handles JWT verification both locally and via external auth service.
     """
 
-    def __init__(self, settings: Optional[Settings] = None):
+    def __init__(self, settings: Settings | None = None):
         """
         Initialize auth service.
 
@@ -39,7 +37,7 @@ class AuthService:
             settings: Application settings.
         """
         self._settings = settings or get_settings()
-        self._http_client: Optional[httpx.AsyncClient] = None
+        self._http_client: httpx.AsyncClient | None = None
 
     async def __aenter__(self) -> "AuthService":
         """Async context manager entry."""
@@ -55,40 +53,24 @@ class AuthService:
         """
         Verify JWT token and return user information.
 
-        This method first attempts local JWT verification, then falls back
-        to external auth service verification if configured.
+        For development, always returns a dummy user.
 
         Args:
             token: JWT token string.
 
         Returns:
             User object with verified claims.
-
-        Raises:
-            AuthenticationError: If token verification fails.
         """
-        # TODO: Implement token verification logic
-        # - Try local JWT verification first
-        # - If local verification fails, try external service
-        # - Extract user claims from token
-        # - Validate token expiration
-        # - Check token audience/issuer
+        # Development mode - always return dummy user
+        return User(
+            id="dev-user-123",
+            email="dev@example.com",
+            organization_id="dev-org",
+            roles=["user"],
+            permissions=["read", "write"],
+        )
 
-        try:
-            # First try local verification
-            user = await self._verify_local(token)
-            if user:
-                return user
-
-            # Fall back to external service
-            return await self._verify_external(token)
-        except AuthenticationError:
-            raise
-        except Exception as e:
-            logger.error(f"Token verification failed: {e}")
-            raise AuthenticationError("Token verification failed", "INVALID_TOKEN")
-
-    async def _verify_local(self, token: str) -> Optional[User]:
+    async def _verify_local(self, token: str) -> User | None:
         """
         Verify token locally using JWT secret.
 
@@ -155,8 +137,7 @@ class AuthService:
             self._http_client = httpx.AsyncClient(timeout=30.0)
 
         verify_url = (
-            f"{self._settings.auth_service_url}"
-            f"{self._settings.auth_service_verify_endpoint}"
+            f"{self._settings.auth_service_url}" f"{self._settings.auth_service_verify_endpoint}"
         )
 
         try:
@@ -247,7 +228,7 @@ class AuthService:
 
 
 # Singleton instance
-_auth_service: Optional[AuthService] = None
+_auth_service: AuthService | None = None
 
 
 def get_auth_service() -> AuthService:

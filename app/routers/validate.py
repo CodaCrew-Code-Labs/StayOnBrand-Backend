@@ -3,7 +3,7 @@ Combined validation and history endpoints.
 """
 
 import logging
-from typing import Annotated, Optional
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
@@ -54,10 +54,14 @@ async def get_history(
     validation_service: Annotated[ValidationService, Depends(get_validation_service_dep)],
     page: Annotated[int, Query(ge=1, description="Page number")] = 1,
     page_size: Annotated[int, Query(ge=1, le=100, description="Items per page")] = 20,
-    validation_type: Annotated[Optional[str], Query(description="Filter by type")] = None,
-    validation_status: Annotated[Optional[str], Query(alias="status", description="Filter by status")] = None,
-    start_date: Annotated[Optional[str], Query(description="Filter by start date (ISO format)")] = None,
-    end_date: Annotated[Optional[str], Query(description="Filter by end date (ISO format)")] = None,
+    validation_type: Annotated[str | None, Query(description="Filter by type")] = None,
+    validation_status: Annotated[
+        str | None, Query(alias="status", description="Filter by status")
+    ] = None,
+    start_date: Annotated[
+        str | None, Query(description="Filter by start date (ISO format)")
+    ] = None,
+    end_date: Annotated[str | None, Query(description="Filter by end date (ISO format)")] = None,
     sort_by: Annotated[str, Query(description="Field to sort by")] = "created_at",
     sort_order: Annotated[str, Query(description="Sort order (asc/desc)")] = "desc",
 ) -> ValidationHistoryResponse:
@@ -151,8 +155,7 @@ async def get_validation_detail(
     # - Return full details
 
     logger.info(
-        f"Validation detail requested by user {current_user.id}: "
-        f"validation_id={validation_id}"
+        f"Validation detail requested by user {current_user.id}: " f"validation_id={validation_id}"
     )
 
     try:
@@ -221,8 +224,7 @@ async def rerun_validation(
     # - Return new validation info
 
     logger.info(
-        f"Validation rerun requested by user {current_user.id}: "
-        f"original_id={validation_id}"
+        f"Validation rerun requested by user {current_user.id}: " f"original_id={validation_id}"
     )
 
     try:

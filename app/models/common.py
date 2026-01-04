@@ -3,10 +3,9 @@ Common Pydantic models used across the application.
 """
 
 from datetime import datetime
-from typing import Any, Generic, List, Optional, TypeVar
+from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel, Field
-
 
 T = TypeVar("T")
 
@@ -30,22 +29,22 @@ class ErrorDetail(BaseModel):
 
     code: str = Field(..., description="Error code")
     message: str = Field(..., description="Error message")
-    field: Optional[str] = Field(None, description="Field that caused the error")
-    details: Optional[dict[str, Any]] = Field(None, description="Additional details")
+    field: str | None = Field(None, description="Field that caused the error")
+    details: dict[str, Any] | None = Field(None, description="Additional details")
 
 
 class ErrorResponse(BaseResponse):
     """Error response model."""
 
     success: bool = Field(default=False)
-    errors: List[ErrorDetail] = Field(default_factory=list, description="List of errors")
-    request_id: Optional[str] = Field(None, description="Request ID for tracking")
+    errors: list[ErrorDetail] = Field(default_factory=list, description="List of errors")
+    request_id: str | None = Field(None, description="Request ID for tracking")
 
 
 class PaginatedResponse(BaseResponse, Generic[T]):
     """Paginated response wrapper."""
 
-    data: List[T] = Field(..., description="List of items")
+    data: list[T] = Field(..., description="List of items")
     total: int = Field(..., description="Total number of items")
     page: int = Field(..., description="Current page number")
     page_size: int = Field(..., description="Number of items per page")
@@ -70,19 +69,21 @@ class User(BaseModel):
     """Authenticated user model."""
 
     id: str = Field(..., description="User ID")
-    email: Optional[str] = Field(None, description="User email")
-    organization_id: Optional[str] = Field(None, description="Organization ID")
-    roles: List[str] = Field(default_factory=list, description="User roles")
-    permissions: List[str] = Field(default_factory=list, description="User permissions")
+    email: str | None = Field(None, description="User email")
+    organization_id: str | None = Field(None, description="Organization ID")
+    roles: list[str] = Field(default_factory=list, description="User roles")
+    permissions: list[str] = Field(default_factory=list, description="User permissions")
 
 
 class Color(BaseModel):
     """Color representation model."""
 
-    hex: str = Field(..., description="Hex color code (e.g., #FF5733)", pattern=r"^#[0-9A-Fa-f]{6}$")
-    rgb: Optional[dict[str, int]] = Field(None, description="RGB values")
-    hsl: Optional[dict[str, float]] = Field(None, description="HSL values")
-    name: Optional[str] = Field(None, description="Color name if identified")
+    hex: str = Field(
+        ..., description="Hex color code (e.g., #FF5733)", pattern=r"^#[0-9A-Fa-f]{6}$"
+    )
+    rgb: dict[str, int] | None = Field(None, description="RGB values")
+    hsl: dict[str, float] | None = Field(None, description="HSL values")
+    name: str | None = Field(None, description="Color name if identified")
 
 
 class ColorPair(BaseModel):
@@ -106,8 +107,8 @@ class ImageMetadata(BaseModel):
 
     filename: str = Field(..., description="Original filename")
     size_bytes: int = Field(..., description="File size in bytes")
-    width: Optional[int] = Field(None, description="Image width in pixels")
-    height: Optional[int] = Field(None, description="Image height in pixels")
+    width: int | None = Field(None, description="Image width in pixels")
+    height: int | None = Field(None, description="Image height in pixels")
     format: str = Field(..., description="Image format")
     mime_type: str = Field(..., description="MIME type")
 

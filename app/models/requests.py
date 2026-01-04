@@ -2,54 +2,45 @@
 Request models for API endpoints.
 """
 
-from typing import Any, List, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.models.enums import ColorFormat, TextSize, WCAGLevel, WCAGVersion
+from app.models.enums import ColorFormat, WCAGLevel, WCAGVersion
 
 
 class ColorCompareRequest(BaseModel):
     """Request model for color contrast comparison."""
 
-    foreground_color: str = Field(
+    colors: list[str] = Field(
         ...,
-        description="Foreground color in hex format (e.g., #FFFFFF)",
-        pattern=r"^#[0-9A-Fa-f]{6}$",
-        examples=["#FFFFFF"],
+        description="List of colors in hex format (min 2, max 5)",
+        min_length=2,
+        max_length=5,
+        examples=[["#FFFFFF", "#000000"]],
     )
-    background_color: str = Field(
-        ...,
-        description="Background color in hex format (e.g., #000000)",
-        pattern=r"^#[0-9A-Fa-f]{6}$",
-        examples=["#000000"],
-    )
-    text_size: TextSize = Field(
-        default=TextSize.NORMAL,
-        description="Text size category for WCAG evaluation",
-    )
-    wcag_level: WCAGLevel = Field(
-        default=WCAGLevel.AA,
-        description="Target WCAG conformance level",
-    )
-    include_recommendations: bool = Field(
-        default=True,
-        description="Whether to include color recommendations",
-    )
-    output_format: ColorFormat = Field(
-        default=ColorFormat.HEX,
-        description="Desired output color format",
-    )
+
+    @field_validator("colors")
+    @classmethod
+    def validate_colors(cls, v: list[str]) -> list[str]:
+        """Validate color format."""
+        import re
+
+        hex_pattern = re.compile(r"^#[0-9A-Fa-f]{6}$")
+        for color in v:
+            if not hex_pattern.match(color):
+                raise ValueError(f"Invalid hex color format: {color}")
+        return v
 
 
 class BrandValidateImageRequest(BaseModel):
     """Request model for brand image validation."""
 
-    brand_id: Optional[str] = Field(
+    brand_id: str | None = Field(
         None,
         description="Brand ID to validate against (uses default if not provided)",
     )
-    brand_colors: Optional[List[str]] = Field(
+    brand_colors: list[str] | None = Field(
         None,
         description="List of brand colors in hex format",
     )
@@ -63,21 +54,22 @@ class BrandValidateImageRequest(BaseModel):
         default=False,
         description="Whether to check for logo presence",
     )
-    logo_reference_url: Optional[str] = Field(
+    logo_reference_url: str | None = Field(
         None,
         description="URL to reference logo for comparison",
     )
-    additional_rules: Optional[dict[str, Any]] = Field(
+    additional_rules: dict[str, Any] | None = Field(
         None,
         description="Additional brand validation rules",
     )
 
     @field_validator("brand_colors")
     @classmethod
-    def validate_brand_colors(cls, v):
+    def validate_brand_colors(cls, v: list[str] | None) -> list[str] | None:
         """Validate brand colors format."""
         if v is not None:
             import re
+
             hex_pattern = re.compile(r"^#[0-9A-Fa-f]{6}$")
             for color in v:
                 if not hex_pattern.match(color):
@@ -183,7 +175,7 @@ class WCAGValidateTextContrastRequest(BaseModel):
         description="Background color in hex format",
         pattern=r"^#[0-9A-Fa-f]{6}$",
     )
-    text_size_px: Optional[float] = Field(
+    text_size_px: float | None = Field(
         None,
         description="Text size in pixels",
     )
@@ -208,7 +200,7 @@ class ValidationRerunRequest(BaseModel):
         default=True,
         description="Whether to use cached image or require new upload",
     )
-    override_params: Optional[dict[str, Any]] = Field(
+    override_params: dict[str, Any] | None = Field(
         None,
         description="Parameters to override from original validation",
     )
@@ -219,9 +211,9 @@ class ValidationHistoryParams(BaseModel):
 
     page: int = Field(default=1, ge=1, description="Page number")
     page_size: int = Field(default=20, ge=1, le=100, description="Items per page")
-    validation_type: Optional[str] = Field(None, description="Filter by validation type")
-    status: Optional[str] = Field(None, description="Filter by status")
-    start_date: Optional[str] = Field(None, description="Filter by start date (ISO format)")
-    end_date: Optional[str] = Field(None, description="Filter by end date (ISO format)")
+    validation_type: str | None = Field(None, description="Filter by validation type")
+    status: str | None = Field(None, description="Filter by status")
+    start_date: str | None = Field(None, description="Filter by start date (ISO format)")
+    end_date: str | None = Field(None, description="Filter by end date (ISO format)")
     sort_by: str = Field(default="created_at", description="Field to sort by")
     sort_order: str = Field(default="desc", description="Sort order (asc/desc)")

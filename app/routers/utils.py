@@ -3,7 +3,6 @@ Utility endpoints for health checks and supported formats.
 """
 
 import logging
-from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, status

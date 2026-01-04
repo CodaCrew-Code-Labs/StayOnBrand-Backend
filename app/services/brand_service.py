@@ -5,7 +5,6 @@ Brand validation and color extraction service.
 import logging
 import uuid
 from datetime import datetime
-from typing import Any, List, Optional
 
 from fastapi import UploadFile
 
@@ -40,7 +39,7 @@ class BrandService:
     - Comparing images for brand consistency
     """
 
-    def __init__(self, redis_service: Optional[RedisService] = None):
+    def __init__(self, redis_service: RedisService | None = None):
         """
         Initialize brand service.
 
@@ -271,9 +270,9 @@ class BrandService:
     async def _match_brand_colors(
         self,
         image: UploadFile,
-        brand_colors: List[str],
+        brand_colors: list[str],
         tolerance: float,
-    ) -> List[BrandColorMatch]:
+    ) -> list[BrandColorMatch]:
         """
         Match image colors against brand colors.
 
@@ -293,7 +292,7 @@ class BrandService:
 
         matches = []
         # Placeholder - would extract and compare actual colors
-        for i, brand_color in enumerate(brand_colors[:5]):
+        for _i, brand_color in enumerate(brand_colors[:5]):
             matches.append(
                 BrandColorMatch(
                     detected_color="#000000",  # TODO: Actual detected color
@@ -309,7 +308,7 @@ class BrandService:
         self,
         image: UploadFile,
         request: BrandValidateImageRequest,
-    ) -> List[BrandValidationResult]:
+    ) -> list[BrandValidationResult]:
         """
         Apply brand validation rules to image.
 
@@ -353,8 +352,8 @@ class BrandService:
 
     def _calculate_compliance_score(
         self,
-        color_matches: List[BrandColorMatch],
-        validation_results: List[BrandValidationResult],
+        color_matches: list[BrandColorMatch],
+        validation_results: list[BrandValidationResult],
     ) -> float:
         """
         Calculate overall compliance score.
@@ -396,7 +395,7 @@ class BrandService:
         max_colors: int,
         group_similar: bool,
         similarity_threshold: float,
-    ) -> List[ExtractedColor]:
+    ) -> list[ExtractedColor]:
         """
         Extract colors from image.
 
@@ -418,7 +417,7 @@ class BrandService:
 
     async def _detect_palette_type(
         self,
-        colors: List[ExtractedColor],
+        colors: list[ExtractedColor],
     ) -> str:
         """
         Detect the color palette type.
@@ -498,7 +497,7 @@ class BrandService:
         image1: UploadFile,
         image2: UploadFile,
         request: BrandCompareImagesRequest,
-    ) -> List[ImageDifference]:
+    ) -> list[ImageDifference]:
         """
         Find differences between two images.
 
@@ -538,6 +537,6 @@ class BrandService:
 
 
 # Factory function
-def get_brand_service(redis_service: Optional[RedisService] = None) -> BrandService:
+def get_brand_service(redis_service: RedisService | None = None) -> BrandService:
     """Get brand service instance."""
     return BrandService(redis_service)

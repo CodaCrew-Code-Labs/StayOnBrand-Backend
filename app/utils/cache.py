@@ -6,7 +6,8 @@ import functools
 import hashlib
 import json
 import logging
-from typing import Any, Callable, Optional, TypeVar, Union
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 from app.services.redis_service import RedisService, get_redis_service
 
@@ -22,7 +23,7 @@ class CacheManager:
     Provides methods for caching, retrieval, and invalidation.
     """
 
-    def __init__(self, redis_service: Optional[RedisService] = None):
+    def __init__(self, redis_service: RedisService | None = None):
         """
         Initialize cache manager.
 
@@ -32,7 +33,7 @@ class CacheManager:
         self._redis = redis_service
         self._prefix = "cache:"
 
-    async def get(self, key: str) -> Optional[Any]:
+    async def get(self, key: str) -> Any | None:
         """
         Get a cached value.
 
@@ -55,7 +56,7 @@ class CacheManager:
         self,
         key: str,
         value: Any,
-        ttl: Optional[int] = None,
+        ttl: int | None = None,
     ) -> bool:
         """
         Set a cached value.
@@ -113,7 +114,7 @@ class CacheManager:
 
 
 # Global cache instance
-_cache: Optional[CacheManager] = None
+_cache: CacheManager | None = None
 
 
 async def get_cache() -> CacheManager:
@@ -126,7 +127,7 @@ async def get_cache() -> CacheManager:
 
 
 # Convenience functions
-async def cache(key: str, value: Any, ttl: Optional[int] = None) -> bool:
+async def cache(key: str, value: Any, ttl: int | None = None) -> bool:
     """
     Cache a value.
 
@@ -158,8 +159,8 @@ async def invalidate_cache(key: str) -> bool:
 
 def cached(
     key_prefix: str,
-    ttl: Optional[int] = None,
-    key_builder: Optional[Callable[..., str]] = None,
+    ttl: int | None = None,
+    key_builder: Callable[..., str] | None = None,
 ) -> Callable[[F], F]:
     """
     Decorator for caching async function results.
@@ -190,9 +191,9 @@ def cached(
                     "args": [str(a) for a in args],
                     "kwargs": {k: str(v) for k, v in sorted(kwargs.items())},
                 }
-                key_hash = hashlib.md5(
-                    json.dumps(key_data, sort_keys=True).encode()
-                ).hexdigest()[:16]
+                key_hash = hashlib.md5(json.dumps(key_data, sort_keys=True).encode()).hexdigest()[
+                    :16
+                ]
                 cache_key = f"{key_prefix}:{func.__name__}:{key_hash}"
 
             # Try to get from cache

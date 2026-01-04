@@ -4,7 +4,6 @@ Loads settings from environment variables and .env file.
 """
 
 from functools import lru_cache
-from typing import List
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -31,13 +30,13 @@ class Settings(BaseSettings):
     port: int = Field(default=8000, description="Server port")
 
     # CORS Settings
-    cors_origins: List[str] = Field(
+    cors_origins: list[str] = Field(
         default=["http://localhost:3000"],
         description="Allowed CORS origins",
     )
     cors_allow_credentials: bool = Field(default=True)
-    cors_allow_methods: List[str] = Field(default=["*"])
-    cors_allow_headers: List[str] = Field(default=["*"])
+    cors_allow_methods: list[str] = Field(default=["*"])
+    cors_allow_headers: list[str] = Field(default=["*"])
 
     # Redis Settings
     redis_host: str = Field(default="localhost", description="Redis host")
@@ -65,11 +64,11 @@ class Settings(BaseSettings):
 
     # File Upload Settings
     max_file_size_mb: int = Field(default=10, description="Maximum file size in MB")
-    allowed_image_extensions: List[str] = Field(
+    allowed_image_extensions: list[str] = Field(
         default=["jpg", "jpeg", "png", "gif", "webp", "svg"],
         description="Allowed image file extensions",
     )
-    allowed_mime_types: List[str] = Field(
+    allowed_mime_types: list[str] = Field(
         default=[
             "image/jpeg",
             "image/png",
@@ -92,12 +91,15 @@ class Settings(BaseSettings):
     rate_limit_requests: int = Field(default=100, description="Rate limit requests")
     rate_limit_window_seconds: int = Field(default=60, description="Rate limit window")
 
-    @field_validator("cors_origins", "allowed_image_extensions", "allowed_mime_types", mode="before")
+    @field_validator(
+        "cors_origins", "allowed_image_extensions", "allowed_mime_types", mode="before"
+    )
     @classmethod
     def parse_list(cls, v):
         """Parse string list from environment variable."""
         if isinstance(v, str):
             import json
+
             try:
                 return json.loads(v)
             except json.JSONDecodeError:

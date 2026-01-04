@@ -4,7 +4,7 @@ Redis service for caching and data storage.
 
 import json
 import logging
-from typing import Any, Optional, TypeVar, Union
+from typing import Any, TypeVar
 
 import redis.asyncio as redis
 from redis.asyncio import Redis
@@ -24,7 +24,7 @@ class RedisService:
     serialization/deserialization of Python objects.
     """
 
-    def __init__(self, settings: Optional[Settings] = None):
+    def __init__(self, settings: Settings | None = None):
         """
         Initialize Redis service.
 
@@ -32,7 +32,7 @@ class RedisService:
             settings: Application settings. Uses default if not provided.
         """
         self._settings = settings or get_settings()
-        self._client: Optional[Redis] = None
+        self._client: Redis | None = None
         self._prefix = self._settings.storage_prefix
 
     async def connect(self) -> None:
@@ -66,7 +66,7 @@ class RedisService:
             self._client = None
             logger.info("Disconnected from Redis")
 
-    async def get(self, key: str) -> Optional[Any]:
+    async def get(self, key: str) -> Any | None:
         """
         Get a value from Redis.
 
@@ -100,7 +100,7 @@ class RedisService:
         self,
         key: str,
         value: Any,
-        ttl: Optional[int] = None,
+        ttl: int | None = None,
     ) -> bool:
         """
         Set a value in Redis with optional TTL.
@@ -194,7 +194,7 @@ class RedisService:
         try:
             values = await self._client.mget(full_keys)
             result = {}
-            for key, value in zip(keys, values):
+            for key, value in zip(keys, values, strict=False):
                 if value:
                     try:
                         result[key] = json.loads(value)
@@ -244,14 +244,16 @@ class RedisService:
 
         full_key = f"{self._prefix}{key}"
         try:
-            serialized = {k: json.dumps(v) if not isinstance(v, str) else v for k, v in mapping.items()}
+            serialized = {
+                k: json.dumps(v) if not isinstance(v, str) else v for k, v in mapping.items()
+            }
             await self._client.hset(full_key, mapping=serialized)
             return True
         except Exception as e:
             logger.error(f"Redis hset error for key {key}: {e}")
             return False
 
-    async def get_hash(self, key: str) -> Optional[dict[str, Any]]:
+    async def get_hash(self, key: str) -> dict[str, Any] | None:
         """
         Get a hash from Redis.
 
@@ -269,7 +271,10 @@ class RedisService:
         try:
             result = await self._client.hgetall(full_key)
             if result:
-                return {k: json.loads(v) if v.startswith(('{', '[', '"')) else v for k, v in result.items()}
+                return {
+                    k: json.loads(v) if v.startswith(("{", "[", '"')) else v
+                    for k, v in result.items()
+                }
             return None
         except Exception as e:
             logger.error(f"Redis hgetall error for key {key}: {e}")
@@ -292,7 +297,7 @@ class RedisService:
 
 
 # Global Redis service instance
-_redis_service: Optional[RedisService] = None
+_redis_service: RedisService | None = None
 
 
 async def get_redis_service() -> RedisService:

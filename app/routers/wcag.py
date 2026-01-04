@@ -3,7 +3,7 @@ WCAG accessibility validation endpoints.
 """
 
 import logging
-from typing import Annotated, Optional
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
 
@@ -217,7 +217,7 @@ async def get_requirements(
     current_user: Annotated[User, Depends(get_current_user)],
     wcag_service: Annotated[WCAGService, Depends(get_wcag_service_dep)],
     version: Annotated[WCAGVersion, Query()] = WCAGVersion.WCAG_21,
-    level: Annotated[Optional[WCAGLevel], Query()] = None,
+    level: Annotated[WCAGLevel | None, Query()] = None,
 ) -> WCAGRequirementsResponse:
     """
     Get WCAG requirements and success criteria.

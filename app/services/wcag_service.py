@@ -5,7 +5,6 @@ WCAG accessibility validation service.
 import logging
 import uuid
 from datetime import datetime
-from typing import List, Optional
 
 from fastapi import UploadFile
 
@@ -13,7 +12,6 @@ from app.models.common import ImageMetadata
 from app.models.enums import TextSize, WCAGLevel, WCAGVersion
 from app.models.requests import WCAGValidateImageRequest, WCAGValidateTextContrastRequest
 from app.models.responses import (
-    ColorRecommendation,
     WCAGCriterion,
     WCAGIssue,
     WCAGRequirementsResponse,
@@ -57,8 +55,8 @@ class WCAGService:
 
     def __init__(
         self,
-        color_service: Optional[ColorService] = None,
-        redis_service: Optional[RedisService] = None,
+        color_service: ColorService | None = None,
+        redis_service: RedisService | None = None,
     ):
         """
         Initialize WCAG service.
@@ -224,7 +222,7 @@ class WCAGService:
     def get_requirements(
         self,
         version: WCAGVersion = WCAGVersion.WCAG_21,
-        level: Optional[WCAGLevel] = None,
+        level: WCAGLevel | None = None,
     ) -> WCAGRequirementsResponse:
         """
         Get WCAG requirements and criteria.
@@ -277,7 +275,7 @@ class WCAGService:
         self,
         image: UploadFile,
         request: WCAGValidateImageRequest,
-    ) -> List[WCAGIssue]:
+    ) -> list[WCAGIssue]:
         """
         Detect WCAG issues in an image.
 
@@ -315,9 +313,9 @@ class WCAGService:
 
     def _get_passed_criteria(
         self,
-        issues: List[WCAGIssue],
+        issues: list[WCAGIssue],
         target_level: WCAGLevel,
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Get list of passed WCAG criteria.
 
@@ -337,7 +335,7 @@ class WCAGService:
         all_criteria = set(self.WCAG_CRITERIA.keys())
         return list(all_criteria - failed_criteria)
 
-    def _generate_suggestions(self, issues: List[WCAGIssue]) -> List[str]:
+    def _generate_suggestions(self, issues: list[WCAGIssue]) -> list[str]:
         """
         Generate improvement suggestions based on issues.
 
@@ -360,7 +358,7 @@ class WCAGService:
 
     def _calculate_compliance_score(
         self,
-        issues: List[WCAGIssue],
+        issues: list[WCAGIssue],
         target_level: WCAGLevel,
     ) -> float:
         """
@@ -381,8 +379,7 @@ class WCAGService:
 
         # Count issues at or below target level
         relevant_issues = [
-            i for i in issues
-            if self._level_value(i.level) <= self._level_value(target_level)
+            i for i in issues if self._level_value(i.level) <= self._level_value(target_level)
         ]
 
         if not relevant_issues:
@@ -396,7 +393,7 @@ class WCAGService:
         """Convert WCAG level to numeric value for comparison."""
         return {"A": 1, "AA": 2, "AAA": 3}.get(level.value, 0)
 
-    def _determine_achieved_level(self, issues: List[WCAGIssue]) -> WCAGLevel:
+    def _determine_achieved_level(self, issues: list[WCAGIssue]) -> WCAGLevel:
         """
         Determine highest WCAG level achieved.
 
@@ -431,7 +428,7 @@ class WCAGService:
 
     def _determine_text_size_category(
         self,
-        size_px: Optional[float],
+        size_px: float | None,
         is_bold: bool,
     ) -> str:
         """
@@ -459,8 +456,8 @@ class WCAGService:
     def _get_criteria_for_version(
         self,
         version: WCAGVersion,
-        level: Optional[WCAGLevel] = None,
-    ) -> List[WCAGCriterion]:
+        level: WCAGLevel | None = None,
+    ) -> list[WCAGCriterion]:
         """
         Get WCAG criteria for a specific version.
 
@@ -515,8 +512,8 @@ class WCAGService:
 
 # Factory function
 def get_wcag_service(
-    color_service: Optional[ColorService] = None,
-    redis_service: Optional[RedisService] = None,
+    color_service: ColorService | None = None,
+    redis_service: RedisService | None = None,
 ) -> WCAGService:
     """Get WCAG service instance."""
     return WCAGService(color_service, redis_service)

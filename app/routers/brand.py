@@ -5,7 +5,7 @@ Brand validation endpoints.
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, UploadFile, status
 
 from app.dependencies import get_brand_service_dep, get_current_user
 from app.models.common import User
