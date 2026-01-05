@@ -95,13 +95,16 @@ class Settings(BaseSettings):
         "cors_origins", "allowed_image_extensions", "allowed_mime_types", mode="before"
     )
     @classmethod
-    def parse_list(cls, v):
+    def parse_list(cls, v: str | list[str]) -> list[str]:
         """Parse string list from environment variable."""
         if isinstance(v, str):
             import json
 
             try:
-                return json.loads(v)
+                parsed_result = json.loads(v)
+                if isinstance(parsed_result, list):
+                    return [str(item) for item in parsed_result]
+                return [str(v)]
             except json.JSONDecodeError:
                 return [item.strip() for item in v.split(",")]
         return v

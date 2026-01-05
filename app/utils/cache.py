@@ -181,7 +181,7 @@ def cached(
 
     def decorator(func: F) -> F:
         @functools.wraps(func)
-        async def wrapper(*args, **kwargs):
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
             # Build cache key
             if key_builder:
                 cache_key = key_builder(*args, **kwargs)
@@ -238,7 +238,7 @@ def cache_key_from_request(
             ...
     """
 
-    def builder(*args, **kwargs) -> str:
+    def builder(*args: Any, **kwargs: Any) -> str:
         key_parts = []
 
         # Extract user ID if available and requested

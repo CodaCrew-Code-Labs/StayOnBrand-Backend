@@ -37,6 +37,20 @@ class ColorCompareResponse(BaseResponse):
 
 
 # Brand Validation Responses
+class DetectedColorMatch(BaseModel):
+    """A detected color in the image matched to its nearest brand color."""
+
+    detected_color: str = Field(..., description="Hex color detected in the image")
+    detected_color_name: str = Field(..., description="Human-readable color name")
+    nearest_brand_color: str = Field(..., description="Nearest brand color hex")
+    match_percentage: float = Field(..., description="How close the match is (0-100)")
+    coverage_percentage: float = Field(..., description="How much of the image this color covers")
+    description: str = Field(
+        ...,
+        description="Human-readable description, e.g. 'This teal is close to brand blue: 92% match'",
+    )
+
+
 class BrandColorMatch(BaseModel):
     """Brand color matching result."""
 
@@ -61,12 +75,18 @@ class BrandValidationResponse(BaseResponse):
     """Response for brand image validation."""
 
     validation_id: str = Field(..., description="Unique validation ID")
-    compliance_level: BrandComplianceLevel = Field(..., description="Overall compliance level")
+    brand_color_match: str = Field(
+        ..., description="Single score summary, e.g. 'Brand color match: 74%'"
+    )
     compliance_score: float = Field(..., description="Compliance score (0-100)")
-    color_matches: list[BrandColorMatch] = Field(..., description="Color matching results")
-    validation_results: list[BrandValidationResult] = Field(
+    compliance_level: BrandComplianceLevel = Field(..., description="Overall compliance level")
+    top_color_matches: list[DetectedColorMatch] = Field(
         ...,
-        description="Individual validation results",
+        description="Top 3 detected colors with their nearest brand color matches",
+    )
+    heatmap_image: str | None = Field(
+        None,
+        description="Base64-encoded PNG heatmap overlay (green=on-brand, red=off-brand). Only included if requested.",
     )
     image_metadata: ImageMetadata = Field(..., description="Image metadata")
     processed_at: datetime = Field(..., description="Processing timestamp")

@@ -62,11 +62,13 @@ async def validate_image(
     image: Annotated[UploadFile, File(description="Image file to validate")],
     current_user: Annotated[User, Depends(get_current_user)],
     brand_service: Annotated[BrandService, Depends(get_brand_service_dep)],
-    brand_id: Annotated[str | None, Form()] = None,
-    brand_colors: Annotated[str | None, Form(description="Comma-separated hex colors")] = None,
+    brand_colors: Annotated[
+        str, Form(description="Comma-separated hex colors or JSON array string")
+    ],
     tolerance_percentage: Annotated[float, Form(ge=0, le=100)] = 10.0,
     check_logo_presence: Annotated[bool, Form()] = False,
     logo_reference_url: Annotated[str | None, Form()] = None,
+    generate_heatmap: Annotated[bool, Form(description="Generate heatmap overlay")] = False,
 ) -> BrandValidationResponse:
     """
     Validate an image against brand guidelines.
@@ -75,37 +77,50 @@ async def validate_image(
         image: The image file to validate.
         current_user: The authenticated user.
         brand_service: The brand validation service.
-        brand_id: Optional brand ID for predefined brand settings.
-        brand_colors: Comma-separated list of brand colors in hex format.
+        brand_colors: Comma-separated list of brand colors in hex format or JSON array string.
         tolerance_percentage: Color matching tolerance (0-100).
         check_logo_presence: Whether to check for logo presence.
         logo_reference_url: URL to reference logo for comparison.
+        generate_heatmap: Whether to generate a heatmap overlay image.
 
     Returns:
         BrandValidationResponse with validation results.
     """
-    # TODO: Implement brand image validation
-    # - Validate uploaded file
-    # - Parse brand colors if provided
-    # - Call brand service for validation
-    # - Store validation result for history
-    # - Return response
-
     # Validate file
     await validate_image_file(image)
 
-    # Parse brand colors from comma-separated string
+    # Parse brand colors - handle both comma-separated and JSON array formats
+    import json
+
+    logger.info(f"Received brand_colors: {brand_colors}")
+
+    # Strip surrounding quotes if present (form data sometimes includes them)
+    clean_brand_colors = brand_colors.strip().strip('"').strip("'")
+
     parsed_colors = None
-    if brand_colors:
-        parsed_colors = [c.strip() for c in brand_colors.split(",")]
+    try:
+        # Try parsing as JSON array first
+        maybe_parsed = json.loads(clean_brand_colors)
+        # Only use JSON result if it's actually a list
+        if isinstance(maybe_parsed, list):
+            parsed_colors = maybe_parsed
+    except json.JSONDecodeError:
+        pass
+
+    # Fall back to comma-separated string
+    if parsed_colors is None:
+        parsed_colors = [c.strip() for c in clean_brand_colors.split(",")]
+
+    logger.info(f"Parsed brand_colors: {parsed_colors}")
 
     # Create request model
     request = BrandValidateImageRequest(
-        brand_id=brand_id,
         brand_colors=parsed_colors,
         tolerance_percentage=tolerance_percentage,
         check_logo_presence=check_logo_presence,
         logo_reference_url=logo_reference_url,
+        generate_heatmap=generate_heatmap,
+        additional_rules=None,
     )
 
     logger.info(f"Brand validation requested by user {current_user.id}")

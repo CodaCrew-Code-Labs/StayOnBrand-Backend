@@ -3,6 +3,7 @@ FastAPI dependency injection providers.
 """
 
 import logging
+from collections.abc import Awaitable, Callable
 
 from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -94,7 +95,7 @@ async def get_current_user(
                 "message": e.message,
             },
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from e
 
 
 async def get_optional_user(
@@ -122,7 +123,7 @@ async def get_optional_user(
         return None
 
 
-def require_permission(permission: str):
+def require_permission(permission: str) -> Callable[..., Awaitable[User]]:
     """
     Dependency factory to require a specific permission.
 
@@ -157,7 +158,7 @@ def require_permission(permission: str):
     return permission_checker
 
 
-def require_role(role: str):
+def require_role(role: str) -> Callable[..., Awaitable[User]]:
     """
     Dependency factory to require a specific role.
 

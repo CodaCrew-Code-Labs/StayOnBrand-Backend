@@ -44,7 +44,7 @@ class AuthService:
         self._http_client = httpx.AsyncClient(timeout=30.0)
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(self, exc_type: type, exc_val: Exception, exc_tb: object) -> None:
         """Async context manager exit."""
         if self._http_client:
             await self._http_client.aclose()
@@ -174,7 +174,7 @@ class AuthService:
             raise AuthenticationError(
                 "Authentication service unavailable",
                 "AUTH_SERVICE_UNAVAILABLE",
-            )
+            ) from e
 
     async def refresh_token(self, refresh_token: str) -> dict:
         """

@@ -205,7 +205,7 @@ async def validate_image_file(
                 "code": e.code,
                 "message": e.message,
             },
-        )
+        ) from e
 
 
 def get_supported_formats(settings: Settings | None = None) -> dict:

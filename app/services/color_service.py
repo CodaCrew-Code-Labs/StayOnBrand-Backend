@@ -26,7 +26,7 @@ class ColorService:
     WCAG_AAA_NORMAL_TEXT = 7.0
     WCAG_AAA_LARGE_TEXT = 4.5
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize color service."""
         pass
 
@@ -90,13 +90,13 @@ class ColorService:
         def gamma_correct(c: float) -> float:
             if c <= 0.03928:
                 return c / 12.92
-            return ((c + 0.055) / 1.055) ** 2.4
+            return float(((c + 0.055) / 1.055) ** 2.4)
 
         r_linear = gamma_correct(r_srgb)
         g_linear = gamma_correct(g_srgb)
         b_linear = gamma_correct(b_srgb)
 
-        return 0.2126 * r_linear + 0.7152 * g_linear + 0.0722 * b_linear
+        return float(0.2126 * r_linear + 0.7152 * g_linear + 0.0722 * b_linear)
 
     def _hex_to_rgb(self, hex_color: str) -> tuple[int, int, int]:
         """
@@ -210,15 +210,18 @@ class ColorService:
         return ColorCompareResponse(
             success=True,
             message="Color comparison completed successfully",
-            foreground_color=foreground,
-            background_color=background,
-            contrast_ratio=round(contrast_ratio, 2),
-            rating=rating,
-            passes_aa_normal=passes_aa_normal,
-            passes_aa_large=passes_aa_large,
-            passes_aaa_normal=passes_aaa_normal,
-            passes_aaa_large=passes_aaa_large,
-            recommendations=recommendations,
+            colors=[foreground, background],
+            comparisons={
+                f"{foreground}_vs_{background}": {
+                    "contrast_ratio": round(contrast_ratio, 2),
+                    "rating": rating.value,
+                    "passes_aa_normal": passes_aa_normal,
+                    "passes_aa_large": passes_aa_large,
+                    "passes_aaa_normal": passes_aaa_normal,
+                    "passes_aaa_large": passes_aaa_large,
+                    "recommendations": recommendations,
+                }
+            },
         )
 
     def generate_recommendations(

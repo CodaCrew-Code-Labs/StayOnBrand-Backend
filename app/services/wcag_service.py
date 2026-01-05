@@ -294,7 +294,7 @@ class WCAGService:
         # - Check touch target sizes
         # - Identify missing alt text indicators
 
-        issues = []
+        issues: list[WCAGIssue] = []
 
         # Placeholder - would detect actual issues
         if request.check_color_contrast:
@@ -481,7 +481,7 @@ class WCAGService:
                     WCAGCriterion(
                         id=criterion_id,
                         title=data["title"],
-                        level=data["level"],
+                        level=WCAGLevel(data["level"]),
                         description=data["description"],
                         how_to_meet="See WCAG documentation",  # TODO: Add actual guidance
                         techniques=[],  # TODO: Add sufficient techniques

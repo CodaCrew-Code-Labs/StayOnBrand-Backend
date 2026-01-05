@@ -138,7 +138,7 @@ app = create_application()
 
 
 @app.get("/", include_in_schema=False)
-async def root():
+async def root() -> dict[str, str | None]:
     """Root endpoint redirect to docs."""
     settings = get_settings()
     return {

@@ -6,6 +6,8 @@ import logging
 import uuid
 from datetime import datetime
 
+import cv2
+import numpy as np
 from fastapi import UploadFile
 
 from app.models.common import Color, ImageMetadata
@@ -16,14 +18,14 @@ from app.models.requests import (
     BrandValidateImageRequest,
 )
 from app.models.responses import (
-    BrandColorMatch,
     BrandValidationResponse,
-    BrandValidationResult,
+    DetectedColorMatch,
     ExtractedColor,
     ExtractedColorsResponse,
     ImageComparisonResponse,
     ImageDifference,
 )
+from app.scripts.BrandColorAlignment import BrandColorAnalyzer, BrandColorSpec
 from app.services.redis_service import RedisService
 
 logger = logging.getLogger(__name__)
@@ -47,6 +49,7 @@ class BrandService:
             redis_service: Redis service for caching.
         """
         self._redis = redis_service
+        self._color_analyzer = BrandColorAnalyzer()
 
     async def validate_image(
         self,
@@ -65,37 +68,18 @@ class BrandService:
         Returns:
             BrandValidationResponse with validation results.
         """
-        # TODO: Implement brand validation logic
-        # - Load image and extract metadata
-        # - Extract colors from image
-        # - Compare against brand colors
-        # - Check for logo presence if requested
-        # - Apply additional validation rules
-        # - Calculate compliance score
-
         validation_id = str(uuid.uuid4())
 
-        # TODO: Extract actual image metadata
         image_metadata = await self._extract_image_metadata(image)
 
-        # TODO: Implement color extraction and matching
-        color_matches = await self._match_brand_colors(
+        # Analyze brand colors using BrandColorAnalyzer
+        top_color_matches, alignment_score, heatmap_base64 = await self._analyze_brand_colors(
             image,
-            request.brand_colors or [],
-            request.tolerance_percentage,
+            request.brand_colors,
+            generate_heatmap=request.generate_heatmap,
         )
 
-        # TODO: Implement validation rules
-        validation_results = await self._apply_validation_rules(
-            image,
-            request,
-        )
-
-        # TODO: Calculate compliance level and score
-        compliance_score = self._calculate_compliance_score(
-            color_matches,
-            validation_results,
-        )
+        compliance_score = alignment_score
         compliance_level = self._determine_compliance_level(compliance_score)
 
         # Cache the result
@@ -111,10 +95,11 @@ class BrandService:
             success=True,
             message="Brand validation completed",
             validation_id=validation_id,
-            compliance_level=compliance_level,
+            brand_color_match=f"Brand color match: {int(round(compliance_score))}%",
             compliance_score=compliance_score,
-            color_matches=color_matches,
-            validation_results=validation_results,
+            compliance_level=compliance_level,
+            top_color_matches=top_color_matches,
+            heatmap_image=heatmap_base64,
             image_metadata=image_metadata,
             processed_at=datetime.utcnow(),
         )
@@ -158,7 +143,16 @@ class BrandService:
         )
 
         # TODO: Identify dominant color
-        dominant_color = colors[0].color if colors else Color(hex="#000000")
+        dominant_color = (
+            colors[0].color
+            if colors
+            else Color(
+                hex="#000000",
+                rgb={"r": 0, "g": 0, "b": 0},
+                hsl={"h": 0, "s": 0, "l": 0},
+                name="black",
+            )
+        )
 
         # TODO: Detect palette type
         palette_type = await self._detect_palette_type(colors)
@@ -248,128 +242,172 @@ class BrandService:
         Returns:
             ImageMetadata object.
         """
-        # TODO: Implement metadata extraction
-        # - Get file size
-        # - Parse image headers for dimensions
-        # - Detect format
-        # - Get MIME type
-
         content = await image.read()
         await image.seek(0)  # Reset for further processing
 
-        # Placeholder implementation
+        # Decode image to get dimensions
+        nparr = np.frombuffer(content, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+        width = None
+        height = None
+        if img is not None:
+            height, width = img.shape[:2]
+
         return ImageMetadata(
             filename=image.filename or "unknown",
             size_bytes=len(content),
-            width=None,  # TODO: Extract from image
-            height=None,  # TODO: Extract from image
+            width=width,
+            height=height,
             format=image.filename.split(".")[-1] if image.filename else "unknown",
             mime_type=image.content_type or "application/octet-stream",
         )
 
-    async def _match_brand_colors(
+    async def _read_image_as_bgr(self, image: UploadFile) -> np.ndarray:
+        """
+        Read an uploaded image file as BGR numpy array.
+
+        Args:
+            image: The uploaded image file.
+
+        Returns:
+            BGR numpy array.
+        """
+        content = await image.read()
+        await image.seek(0)
+        nparr = np.frombuffer(content, np.uint8)
+        bgr = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if bgr is None:
+            raise ValueError("Failed to decode image")
+        return bgr
+
+    def _hex_to_color_name(self, hex_color: str) -> str:
+        """
+        Convert hex color to a human-readable color name.
+
+        Uses a simple heuristic based on RGB values.
+        """
+        hex_clean = hex_color.lstrip("#")
+        r = int(hex_clean[0:2], 16)
+        g = int(hex_clean[2:4], 16)
+        b = int(hex_clean[4:6], 16)
+
+        # Calculate brightness and saturation-like values
+        max_c = max(r, g, b)
+        min_c = min(r, g, b)
+        brightness = (max_c + min_c) / 2
+
+        # Check for grayscale first
+        if max_c - min_c < 30:
+            if brightness > 220:
+                return "white"
+            elif brightness > 160:
+                return "light gray"
+            elif brightness > 80:
+                return "gray"
+            elif brightness > 30:
+                return "dark gray"
+            else:
+                return "black"
+
+        # Determine dominant color
+        if r >= g and r >= b:
+            if g > b + 30:
+                return "orange" if r > 200 and g > 100 else "brown"
+            elif b > g + 30:
+                return "pink" if brightness > 150 else "magenta"
+            else:
+                return "red"
+        elif g >= r and g >= b:
+            if b > r + 30:
+                return "teal" if b > 100 else "cyan"
+            elif r > b + 30:
+                return "yellow" if r > 180 else "olive"
+            else:
+                return "green"
+        else:  # b is dominant
+            if r > g + 30:
+                return "purple" if r > 100 else "violet"
+            elif g > r + 30:
+                return "cyan" if g > 150 else "teal"
+            else:
+                return "blue"
+
+    async def _analyze_brand_colors(
         self,
         image: UploadFile,
         brand_colors: list[str],
-        tolerance: float,
-    ) -> list[BrandColorMatch]:
+        generate_heatmap: bool = False,
+    ) -> tuple[list[DetectedColorMatch], float, str | None]:
         """
-        Match image colors against brand colors.
+        Analyze image colors against brand colors using BrandColorAnalyzer.
 
         Args:
             image: The uploaded image.
             brand_colors: List of brand colors in hex.
-            tolerance: Matching tolerance percentage.
+            generate_heatmap: Whether to generate a heatmap overlay.
 
         Returns:
-            List of BrandColorMatch objects.
+            Tuple of (list of DetectedColorMatch objects, alignment_score, heatmap_base64 or None).
         """
-        # TODO: Implement color matching
-        # - Extract colors from image
-        # - Compare each with brand colors
-        # - Calculate match percentages
-        # - Determine compliance
+        if not brand_colors:
+            return [], 0.0, None
 
-        matches = []
-        # Placeholder - would extract and compare actual colors
-        for _i, brand_color in enumerate(brand_colors[:5]):
-            matches.append(
-                BrandColorMatch(
-                    detected_color="#000000",  # TODO: Actual detected color
-                    matched_brand_color=brand_color,
-                    match_percentage=0.0,  # TODO: Calculate actual match
-                    coverage_percentage=0.0,  # TODO: Calculate coverage
-                    is_compliant=False,  # TODO: Determine compliance
-                )
-            )
-        return matches
+        # Read image as BGR
+        bgr = await self._read_image_as_bgr(image)
 
-    async def _apply_validation_rules(
-        self,
-        image: UploadFile,
-        request: BrandValidateImageRequest,
-    ) -> list[BrandValidationResult]:
-        """
-        Apply brand validation rules to image.
+        # Convert brand colors to BrandColorSpec
+        brand_specs = [BrandColorSpec(hex=color) for color in brand_colors]
 
-        Args:
-            image: The uploaded image.
-            request: Validation request with rules.
-
-        Returns:
-            List of BrandValidationResult objects.
-        """
-        # TODO: Implement validation rules
-        # - Check color usage rules
-        # - Check logo presence/placement
-        # - Apply custom rules from request
-
-        results = []
-
-        # Placeholder validation results
-        results.append(
-            BrandValidationResult(
-                rule_name="color_compliance",
-                passed=False,  # TODO: Actual result
-                message="Color compliance check pending implementation",
-                severity="warning",
-                details=None,
-            )
+        # Analyze using BrandColorAnalyzer
+        result = self._color_analyzer.analyze(
+            bgr_image=bgr,
+            brand_colors=brand_specs,
+            k_clusters=8,
+            generate_heatmap=generate_heatmap,
         )
 
-        if request.check_logo_presence:
-            results.append(
-                BrandValidationResult(
-                    rule_name="logo_presence",
-                    passed=False,  # TODO: Actual result
-                    message="Logo detection pending implementation",
-                    severity="info",
-                    details=None,
+        alignment_score = result["alignment_score"]
+        top_detected = result.get("top_detected_colors", [])
+        heatmap_base64 = result.get("heatmap_base64")
+
+        # Convert to DetectedColorMatch objects
+        matches = []
+        for item in top_detected:
+            detected_hex = item["detected_color"]
+            brand_hex = item["nearest_brand_color"]
+            match_pct = item["match_percentage"]
+            coverage_pct = item["coverage_percentage"]
+
+            detected_name = self._hex_to_color_name(detected_hex)
+            brand_name = self._hex_to_color_name(brand_hex)
+
+            # Build human-readable description
+            if match_pct >= 90:
+                description = (
+                    f"This {detected_name} matches brand {brand_name}: {int(match_pct)}% match"
+                )
+            elif match_pct >= 70:
+                description = (
+                    f"This {detected_name} is close to brand {brand_name}: {int(match_pct)}% match"
+                )
+            else:
+                description = (
+                    f"This {detected_name} differs from brand {brand_name}: {int(match_pct)}% match"
+                )
+
+            matches.append(
+                DetectedColorMatch(
+                    detected_color=detected_hex,
+                    detected_color_name=detected_name,
+                    nearest_brand_color=brand_hex,
+                    match_percentage=match_pct,
+                    coverage_percentage=coverage_pct,
+                    description=description,
                 )
             )
 
-        return results
-
-    def _calculate_compliance_score(
-        self,
-        color_matches: list[BrandColorMatch],
-        validation_results: list[BrandValidationResult],
-    ) -> float:
-        """
-        Calculate overall compliance score.
-
-        Args:
-            color_matches: Color matching results.
-            validation_results: Validation rule results.
-
-        Returns:
-            Compliance score (0-100).
-        """
-        # TODO: Implement scoring algorithm
-        # - Weight color matches
-        # - Weight validation rules by severity
-        # - Calculate weighted average
-        return 0.0
+        return matches, alignment_score, heatmap_base64
 
     def _determine_compliance_level(self, score: float) -> BrandComplianceLevel:
         """

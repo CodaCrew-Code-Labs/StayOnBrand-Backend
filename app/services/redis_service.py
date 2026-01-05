@@ -57,7 +57,7 @@ class RedisService:
             logger.info("Connected to Redis successfully")
         except Exception as e:
             logger.error(f"Failed to connect to Redis: {e}")
-            raise ConnectionError(f"Redis connection failed: {e}")
+            raise ConnectionError(f"Redis connection failed: {e}") from e
 
     async def disconnect(self) -> None:
         """Close Redis connection."""
@@ -125,8 +125,8 @@ class RedisService:
 
         try:
             serialized = json.dumps(value) if not isinstance(value, str) else value
-            await self._client.setex(full_key, ttl, serialized)
-            return True
+            result = await self._client.setex(full_key, ttl, serialized)
+            return bool(result)
         except Exception as e:
             logger.error(f"Redis set error for key {key}: {e}")
             return False
@@ -148,7 +148,7 @@ class RedisService:
         full_key = f"{self._prefix}{key}"
         try:
             result = await self._client.delete(full_key)
-            return result > 0
+            return bool(result > 0)
         except Exception as e:
             logger.error(f"Redis delete error for key {key}: {e}")
             return False
@@ -169,7 +169,8 @@ class RedisService:
 
         full_key = f"{self._prefix}{key}"
         try:
-            return await self._client.exists(full_key) > 0
+            result = await self._client.exists(full_key)
+            return bool(result > 0)
         except Exception as e:
             logger.error(f"Redis exists error for key {key}: {e}")
             return False
@@ -222,7 +223,8 @@ class RedisService:
 
         full_key = f"{self._prefix}{key}"
         try:
-            return await self._client.incrby(full_key, amount)
+            result = await self._client.incrby(full_key, amount)
+            return int(result)
         except Exception as e:
             logger.error(f"Redis increment error for key {key}: {e}")
             raise
@@ -247,8 +249,8 @@ class RedisService:
             serialized = {
                 k: json.dumps(v) if not isinstance(v, str) else v for k, v in mapping.items()
             }
-            await self._client.hset(full_key, mapping=serialized)
-            return True
+            result = await self._client.hset(full_key, mapping=serialized)  # type: ignore[misc]
+            return bool(result is not None)
         except Exception as e:
             logger.error(f"Redis hset error for key {key}: {e}")
             return False
@@ -269,7 +271,7 @@ class RedisService:
 
         full_key = f"{self._prefix}{key}"
         try:
-            result = await self._client.hgetall(full_key)
+            result = await self._client.hgetall(full_key)  # type: ignore[misc]
             if result:
                 return {
                     k: json.loads(v) if v.startswith(("{", "[", '"')) else v

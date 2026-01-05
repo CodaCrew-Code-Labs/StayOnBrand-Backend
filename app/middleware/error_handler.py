@@ -47,7 +47,7 @@ class ErrorHandlerMiddleware(BaseHTTPMiddleware):
 
         # Add request ID to response headers
         try:
-            response = await call_next(request)
+            response: Response = await call_next(request)
             response.headers["X-Request-ID"] = request_id
             return response
         except Exception as e:
@@ -73,6 +73,8 @@ class ErrorHandlerMiddleware(BaseHTTPMiddleware):
                     ErrorDetail(
                         code="INTERNAL_ERROR",
                         message=str(e) if settings.debug else "Internal server error",
+                        field=None,
+                        details=None,
                     )
                 ],
             )
@@ -87,7 +89,7 @@ class ErrorHandlerMiddleware(BaseHTTPMiddleware):
 async def http_exception_handler(
     request: Request,
     exc: StarletteHTTPException,
-) -> JSONResponse:
+) -> Response:
     """
     Handle HTTP exceptions with consistent error format.
 
@@ -108,6 +110,8 @@ async def http_exception_handler(
             ErrorDetail(
                 code=f"HTTP_{exc.status_code}",
                 message=str(exc.detail),
+                field=None,
+                details=None,
             )
         ],
     )
@@ -122,7 +126,7 @@ async def http_exception_handler(
 async def validation_exception_handler(
     request: Request,
     exc: RequestValidationError,
-) -> JSONResponse:
+) -> Response:
     """
     Handle request validation errors with detailed feedback.
 
@@ -164,7 +168,7 @@ async def validation_exception_handler(
 async def global_exception_handler(
     request: Request,
     exc: Exception,
-) -> JSONResponse:
+) -> Response:
     """
     Handle any unhandled exceptions.
 
@@ -194,6 +198,7 @@ async def global_exception_handler(
             ErrorDetail(
                 code="INTERNAL_ERROR",
                 message=error_details,
+                field=None,
                 details={"traceback": traceback.format_exc()} if settings.debug else None,
             )
         ],
@@ -213,6 +218,6 @@ def setup_exception_handlers(app: FastAPI) -> None:
     Args:
         app: The FastAPI application instance.
     """
-    app.add_exception_handler(StarletteHTTPException, http_exception_handler)
-    app.add_exception_handler(RequestValidationError, validation_exception_handler)
+    app.add_exception_handler(StarletteHTTPException, http_exception_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(RequestValidationError, validation_exception_handler)  # type: ignore[arg-type]
     app.add_exception_handler(Exception, global_exception_handler)

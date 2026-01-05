@@ -36,12 +36,9 @@ class ColorCompareRequest(BaseModel):
 class BrandValidateImageRequest(BaseModel):
     """Request model for brand image validation."""
 
-    brand_id: str | None = Field(
-        None,
-        description="Brand ID to validate against (uses default if not provided)",
-    )
-    brand_colors: list[str] | None = Field(
-        None,
+    brand_colors: list[str] = Field(
+        ...,
+        min_length=1,
         description="List of brand colors in hex format",
     )
     tolerance_percentage: float = Field(
@@ -58,6 +55,10 @@ class BrandValidateImageRequest(BaseModel):
         None,
         description="URL to reference logo for comparison",
     )
+    generate_heatmap: bool = Field(
+        default=False,
+        description="Generate heatmap overlay showing on-brand vs off-brand areas",
+    )
     additional_rules: dict[str, Any] | None = Field(
         None,
         description="Additional brand validation rules",
@@ -65,15 +66,14 @@ class BrandValidateImageRequest(BaseModel):
 
     @field_validator("brand_colors")
     @classmethod
-    def validate_brand_colors(cls, v: list[str] | None) -> list[str] | None:
+    def validate_brand_colors(cls, v: list[str]) -> list[str]:
         """Validate brand colors format."""
-        if v is not None:
-            import re
+        import re
 
-            hex_pattern = re.compile(r"^#[0-9A-Fa-f]{6}$")
-            for color in v:
-                if not hex_pattern.match(color):
-                    raise ValueError(f"Invalid hex color format: {color}")
+        hex_pattern = re.compile(r"^#[0-9A-Fa-f]{6}$")
+        for color in v:
+            if not hex_pattern.match(color):
+                raise ValueError(f"Invalid hex color format: {color}")
         return v
 
 

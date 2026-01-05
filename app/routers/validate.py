@@ -171,7 +171,7 @@ async def get_validation_detail(
                 "code": "VALIDATION_NOT_FOUND",
                 "message": str(e),
             },
-        )
+        ) from e
 
 
 @router.post(
@@ -241,4 +241,4 @@ async def rerun_validation(
                 "code": "VALIDATION_NOT_FOUND",
                 "message": str(e),
             },
-        )
+        ) from e
