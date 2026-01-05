@@ -8,7 +8,7 @@ from datetime import datetime
 
 from fastapi import UploadFile
 
-from app.models.common import ImageMetadata
+from app.models.common import BoundingBox, ImageMetadata
 from app.models.enums import TextSize, WCAGLevel, WCAGVersion
 from app.models.requests import WCAGValidateImageRequest, WCAGValidateTextContrastRequest
 from app.models.responses import (
@@ -18,6 +18,7 @@ from app.models.responses import (
     WCAGTextContrastResponse,
     WCAGValidationResponse,
 )
+from app.scripts.ImageA11yEvalution import evaluate_image_accessibility_from_bytes
 from app.services.color_service import ColorService
 from app.services.redis_service import RedisService
 
@@ -85,32 +86,45 @@ class WCAGService:
         Returns:
             WCAGValidationResponse with validation results.
         """
-        # TODO: Implement WCAG image validation
-        # - Detect text regions in image
-        # - Extract foreground/background colors for each region
-        # - Check contrast ratios
-        # - Check text sizes
-        # - Check touch target sizes if applicable
-        # - Generate suggestions for improvements
-
         validation_id = str(uuid.uuid4())
 
-        # TODO: Extract actual image metadata
+        # Extract image metadata
         image_metadata = await self._extract_image_metadata(image)
 
-        # TODO: Detect issues in image
-        issues = await self._detect_wcag_issues(image, request)
+        # Detect issues using the accessibility evaluation script
+        issues, eval_result = await self._detect_wcag_issues(image, request)
 
-        # TODO: Determine passed criteria
+        # Determine passed criteria
         passed_criteria = self._get_passed_criteria(issues, request.wcag_level)
 
-        # TODO: Generate suggestions
+        # Generate suggestions based on issues and include notes from eval
         suggestions = self._generate_suggestions(issues)
+        if request.include_suggestions:
+            suggestions.extend(eval_result.get("notes", []))
 
-        # Calculate compliance
-        is_compliant = len([i for i in issues if i.level == request.wcag_level]) == 0
-        compliance_score = self._calculate_compliance_score(issues, request.wcag_level)
+        # Use the overall score from the evaluation script
+        compliance_score = eval_result.get("overall_score", 100.0)
+
+        # Determine achieved level and compliance
+        # AA = compliant (no A-level issues)
+        # AAA = super compliant (no A or AA-level issues)
         wcag_level_achieved = self._determine_achieved_level(issues)
+
+        # Check compliance: AA is compliant if achieved level >= AA, AAA is super compliant
+        # A-level issues make it non-compliant for any target
+        # AA-level issues make it non-compliant only for AAA target
+        a_level_issues = [i for i in issues if i.level == WCAGLevel.A]
+        aa_level_issues = [i for i in issues if i.level == WCAGLevel.AA]
+
+        if request.wcag_level == WCAGLevel.AAA:
+            # For AAA target: compliant if no A or AA issues
+            is_compliant = len(a_level_issues) == 0 and len(aa_level_issues) == 0
+        elif request.wcag_level == WCAGLevel.AA:
+            # For AA target: compliant if no A-level issues (AA issues are acceptable)
+            is_compliant = len(a_level_issues) == 0
+        else:
+            # For A target: compliant if no A-level issues
+            is_compliant = len(a_level_issues) == 0
 
         # Cache result
         if self._redis:
@@ -275,41 +289,104 @@ class WCAGService:
         self,
         image: UploadFile,
         request: WCAGValidateImageRequest,
-    ) -> list[WCAGIssue]:
+    ) -> tuple[list[WCAGIssue], dict]:
         """
-        Detect WCAG issues in an image.
+        Detect WCAG issues in an image using the ImageA11yEvalution script.
 
         Args:
             image: The uploaded image.
             request: Validation parameters.
 
         Returns:
-            List of WCAGIssue objects.
+            Tuple of (list of WCAGIssue objects, raw evaluation result dict).
         """
-        # TODO: Implement WCAG issue detection
-        # - Use OCR to detect text regions
-        # - Extract colors from text and background
-        # - Check contrast ratios
-        # - Check text sizes
-        # - Check touch target sizes
-        # - Identify missing alt text indicators
-
         issues: list[WCAGIssue] = []
 
-        # Placeholder - would detect actual issues
+        # Read image bytes
+        content = await image.read()
+        await image.seek(0)
+
+        # Run accessibility evaluation
+        eval_result = evaluate_image_accessibility_from_bytes(content)
+
+        # Convert regions with issues to WCAGIssue objects
         if request.check_color_contrast:
-            # TODO: Detect contrast issues
-            pass
+            for region in eval_result.get("regions", []):
+                # Check contrast ratio against WCAG thresholds
+                threshold = 3.0 if region["is_large"] else 4.5
+                if region["contrast"] < threshold:
+                    bbox = region["bbox"]
+                    issues.append(
+                        WCAGIssue(
+                            criterion="1.4.3",
+                            level=WCAGLevel.AA,
+                            title="Insufficient Text Contrast",
+                            description=(
+                                f"Text '{region['text']}' has contrast ratio of {region['contrast']:.2f}:1, "
+                                f"which is below the required {threshold}:1 for "
+                                f"{'large' if region['is_large'] else 'normal'} text."
+                            ),
+                            impact="serious",
+                            location=BoundingBox(
+                                x=bbox["x"],
+                                y=bbox["y"],
+                                width=bbox["w"],
+                                height=bbox["h"],
+                            ),
+                            suggestion=f"Increase contrast ratio to at least {threshold}:1 by using darker text or lighter background.",
+                        )
+                    )
+
+                # Check colorblind safety
+                cb_threshold = 3.0 if region["is_large"] else 4.5
+                if region["colorblind_min_contrast"] < cb_threshold:
+                    bbox = region["bbox"]
+                    issues.append(
+                        WCAGIssue(
+                            criterion="1.4.1",
+                            level=WCAGLevel.A,
+                            title="Color-blind Accessibility Issue",
+                            description=(
+                                f"Text '{region['text']}' may be difficult to read for color-blind users. "
+                                f"Minimum contrast under color-blind simulation: {region['colorblind_min_contrast']:.2f}:1."
+                            ),
+                            impact="moderate",
+                            location=BoundingBox(
+                                x=bbox["x"],
+                                y=bbox["y"],
+                                width=bbox["w"],
+                                height=bbox["h"],
+                            ),
+                            suggestion="Consider using colors that maintain sufficient contrast for users with color vision deficiencies.",
+                        )
+                    )
 
         if request.check_text_size:
-            # TODO: Detect text size issues
-            pass
+            # Check for regions with small text and low legibility
+            for region in eval_result.get("regions", []):
+                if not region["is_large"] and region["clutter"] > 0.5:
+                    bbox = region["bbox"]
+                    issues.append(
+                        WCAGIssue(
+                            criterion="1.4.4",
+                            level=WCAGLevel.AA,
+                            title="Small Text in Cluttered Area",
+                            description=(
+                                f"Small text '{region['text']}' appears in a cluttered area "
+                                f"(clutter score: {region['clutter']:.2f}), reducing legibility."
+                            ),
+                            impact="moderate",
+                            location=BoundingBox(
+                                x=bbox["x"],
+                                y=bbox["y"],
+                                width=bbox["w"],
+                                height=bbox["h"],
+                            ),
+                            suggestion="Consider using larger text or reducing background complexity to improve readability.",
+                        )
+                    )
 
-        if request.check_touch_targets:
-            # TODO: Detect touch target issues
-            pass
-
-        return issues
+        return issues, eval_result
 
     def _get_passed_criteria(
         self,
