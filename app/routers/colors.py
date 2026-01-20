@@ -94,10 +94,13 @@ async def compare_colors(
     # Use ColorValidation class to get comprehensive results
     color_validator = ColorValidation()
     comparisons = color_validator.colorContrastValidation(request.colors)
+    color_scores, palette_score = color_validator.calculateScores(request.colors, comparisons)
 
     return ColorCompareResponse(
         success=True,
         message="Color comparison completed successfully",
         colors=request.colors,
         comparisons=comparisons,
+        color_scores=color_scores,
+        palette_score=palette_score,
     )

@@ -208,3 +208,45 @@ class ColorValidation:
             return "medium"
         else:
             return "high"
+
+    def _calculateWeightedScore(self, contrast_ratio: float) -> float:
+        """Calculate nuanced weighted score for a single comparison.
+
+        Scoring:
+        - AAA (≥7.0): 100
+        - Between AA and AAA (4.5-7.0): 75-100 (interpolated)
+        - Between AA Large and AA (3.0-4.5): 50-75 (interpolated)
+        - Below AA Large (<3.0): 0-50 (interpolated, capped at ratio 1.0)
+        """
+        if contrast_ratio >= 7.0:
+            return 100.0
+        elif contrast_ratio >= 4.5:
+            progress = (contrast_ratio - 4.5) / (7.0 - 4.5)
+            return 75.0 + (progress * 25.0)
+        elif contrast_ratio >= 3.0:
+            progress = (contrast_ratio - 3.0) / (4.5 - 3.0)
+            return 50.0 + (progress * 25.0)
+        else:
+            return max(0.0, (contrast_ratio / 3.0) * 50.0)
+
+    def calculateScores(
+        self, colors: list[str], comparisons: dict[str, dict[str, Any]]
+    ) -> tuple[dict[str, float], float]:
+        """Calculate individual color scores and overall palette score."""
+        color_scores: dict[str, list[float]] = {color: [] for color in colors}
+
+        for key, comparison in comparisons.items():
+            ratio_str = comparison["contrast_ratio"]
+            ratio = float(ratio_str.split(":")[0])
+            score = self._calculateWeightedScore(ratio)
+
+            colors_in_pair = key.split("_")
+            color_scores[colors_in_pair[0]].append(score)
+            color_scores[colors_in_pair[1]].append(score)
+
+        individual_scores = {
+            color: round(sum(scores) / len(scores), 2) for color, scores in color_scores.items()
+        }
+        palette_score = round(sum(individual_scores.values()) / len(individual_scores), 2)
+
+        return individual_scores, palette_score

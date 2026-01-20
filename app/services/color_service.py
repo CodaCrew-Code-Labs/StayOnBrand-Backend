@@ -222,6 +222,8 @@ class ColorService:
                     "recommendations": recommendations,
                 }
             },
+            color_scores={foreground: 0.0, background: 0.0},
+            palette_score=0.0,
         )
 
     def generate_recommendations(

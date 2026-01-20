@@ -34,6 +34,10 @@ class ColorCompareResponse(BaseResponse):
     comparisons: dict[str, dict[str, Any]] = Field(
         ..., description="Color pair comparisons with WCAG validation results"
     )
+    color_scores: dict[str, float] = Field(
+        ..., description="Individual color accessibility scores (0-100)"
+    )
+    palette_score: float = Field(..., description="Overall palette accessibility score (0-100)")
 
 
 # Brand Validation Responses
